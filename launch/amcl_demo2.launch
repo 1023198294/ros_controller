@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="rviz" default="true"/>
+
+  <!-- AMCL -->
+ <include file="$(find mybot)/launch/include/amcl.launch.xml" />
+
+  <!-- Move Base -->
+ <include file="$(find mybot)/launch/include/move_base.launch.xml" />
+
+  <!-- RViz -->
+  <node if="$(arg rviz)" pkg="rviz" type="rviz" name="$(anon rviz)" respawn="false" output="screen" args="-d $(find mybot)/rviz/localization.rviz" />
+
+</launch>

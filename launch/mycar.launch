@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="mybot" type ="serial_test" name="serial_test" >
+        <param name="use_joystick" type="bool" value="true" />
+    </node>
+    <node pkg="mybot" type="teleop_twist_keyboard.py" name="keyboard" />
+</launch>

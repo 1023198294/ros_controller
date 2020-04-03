@@ -72,18 +72,22 @@ int main (int argc, char** argv)
 { 
     std_msgs::UInt8MultiArray r_buffer;
     int buad,time_out,hz;
-    string dev,pub_odom_topic;    
+    string dev,pub_odom_topic,cmd_vel;    
+    bool use_joystick;
     ros::init(argc, argv, "serial_test");
     ros::NodeHandle n; 
     n.param<int>("baud",buad,115200);
     n.param<int >("time_out",time_out,1000);
-    n.param<int>("hz",hz,50);
+    n.param<int>("hz",hz,100);
     n.param<std::string>("pub_odom_topic",pub_odom_topic,"/car_odom");
-    n.param<std::string>("dev",dev,"/dev/ttyUSB0");
+    n.param<std::string>("dev",dev,"/dev/ttyUSB1");
+    n.param<std::string>("cmd_vel",cmd_vel,"/cmd_vel");
+    n.param<bool>("use_joystick",use_joystick,false);
+
     DELTA_T = 1.0/hz;
     ros::Rate loop_rate(hz);
     odom_pub = n.advertise<nav_msgs::Odometry>(pub_odom_topic,20);
-    ros::Subscriber command_sub = n.subscribe("turtle1/cmd_vel",10,cmd_vel_callback);
+    ros::Subscriber command_sub = n.subscribe(cmd_vel,10,cmd_vel_callback);
     try{    
         ros_ser.setPort(dev);
         ros_ser.setBaudrate(buad);
@@ -175,16 +179,17 @@ int main (int argc, char** argv)
             calculate_position_by_odometry();
         
             //send self data
+            if (!use_joystick){
             send_CarBus(0x05,v1,v2,v3,v4,rnd);
             rnd = (rnd+1)%100;
             serial_hang(21);
             serial_data.data = ros_ser.read(ros_ser.available());
             if (serial_data.data[1]==0x06){
                 //ROS_INFO("Send Data Done,RND = %d",rnd);
-            }else{
+                }else{
             //ROS_INFO("Send Data Failed,RND = %d",rnd);
+                }
             }
-            
         }
         //float d1,d2,d3,d4 = analy_uart_receive_data(serial_data);
         ros::spinOnce();
@@ -238,13 +243,13 @@ void analy_uart_receive_data(float datas[],std_msgs::String serial_data){
 }
 void cmd_vel_callback(const geometry_msgs::Twist::ConstPtr& msg){
    
-    speedX = msg->linear.x*12;//乌龟键盘不够快！
-    speedY = msg->linear.y*12;
-    speedW = msg->angular.z*40;
-    v4 = speedX-speedY-WHEEL_K*speedW;
-    v2 = speedX+speedY-WHEEL_K*speedW;
-    v1 = -(speedX-speedY+WHEEL_K*speedW);
-    v3 = -(speedX+speedY+WHEEL_K*speedW);
+    speedX = msg->linear.x*20;//乌龟键盘不够快！
+    speedY = msg->linear.y*20;
+    speedW = msg->angular.z*20;
+    v4 = speedX+speedY-WHEEL_K*speedW;
+    v2 = speedX-speedY-WHEEL_K*speedW;
+    v1 = -(speedX+speedY+WHEEL_K*speedW);
+    v3 = -(speedX-speedY+WHEEL_K*speedW);
     v1 = v1/(2.0*WHEEL_RATIO*WHEEL_PI);//线速度到角速度
     v2 = v2/(2.0*WHEEL_RATIO*WHEEL_PI);
     v3 =  v3/(2.0*WHEEL_RATIO*WHEEL_PI);
@@ -280,8 +285,8 @@ void calculate_position_by_odometry(void){
     delta_s2 = s2-s2_last;
     delta_s3 = s3-s3_last;
     delta_s4 = s4-s4_last;
-    delta_positionX = 0.25*delta_s1+0.25*delta_s2-0.25*delta_s3-0.25*delta_s4;
-    delta_positionY = -0.25*delta_s1+0.25*delta_s2-0.25*delta_s3+0.25*delta_s4;
+    delta_positionX = -0.25*delta_s1+0.25*delta_s2-0.25*delta_s3+0.25*delta_s4;
+    delta_positionY = 0.25*delta_s1+0.25*delta_s2-0.25*delta_s3-0.25*delta_s4;
     delta_positionW = -K4*delta_s1-K4*delta_s2-K4*delta_s3-K4*delta_s4;//弧度
 
     positionX = positionX +  cos(positionW)*delta_positionX-sin(positionW)*delta_positionY;
@@ -296,12 +301,13 @@ void calculate_position_by_odometry(void){
     spd2 = rpm2/60.0/WHEEL_RATIO*WHEEL_PI*WHEEL_D;
     spd3 = rpm3/60.0/WHEEL_RATIO*WHEEL_PI*WHEEL_D;
     spd4 = rpm4/60.0/WHEEL_RATIO*WHEEL_PI*WHEEL_D;
-    linearX = 0.25*spd1+0.25*spd2-0.25*spd3-0.25*spd4;
-    linearY = -0.25*spd1+0.25*spd2-0.25*spd3+0.25*spd4;
+    linearX = -0.25*spd1+0.25*spd2-0.25*spd3+0.25*spd4;
+    linearY = 0.25*spd1+0.25*spd2-0.25*spd3-0.25*spd4;
     linearW = -K4*spd1-K4*spd2-K4*spd3-K4*spd4;
 
     ROS_INFO("Position_X:%f Position_Y: %f Position_W: %f",positionX,positionY,positionW);
     //ROS_INFO("Linear_X: %f Linear_Y: %f Linear_W: %f",linearX,linearY,linearW);
+    publish_odometry(positionX,positionY,positionW,linearX,linearY,linearW);
 }
 void publish_odometry(float positionX,float positionY,float orientation,float linearX,float linearY,float linearW){
     static tf::TransformBroadcaster odom_broadcaster;

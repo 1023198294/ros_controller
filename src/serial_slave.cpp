@@ -14,10 +14,11 @@ int main(int argc,char** argv){
     int x = 5;
     int y = 9;
     int baud,time_out,hz;
+    
     n.param<int>("baud",baud,115200);
     n.param<int >("time_out",time_out,1000);
     n.param<int>("hz",hz,500);
-
+    
     ROS_INFO_STREAM("ros initial COMPLETE");
     //ros::Subscriber SOURCE_sub = n.subscribe(topic,10,callback);
     //ros::ServiceServer service = n.advertiseService("Add",add);
